@@ -1,44 +1,44 @@
 package main
 
 import (
-	"net/http"
+	"log"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"gitlab.com/nawin14/course/db"
+	"gitlab.com/nawin14/course/handler"
+	"gitlab.com/nawin14/course/middleware"
 )
 
-type Course struct {
-	ID          string
-	Name        string
-	Description string
-}
-
-var courses = []Course{
-	{ID: "1", Name: "nawin kaewlong", Description: "learngo"},
-	{ID: "2", Name: "nawin kaewlong", Description: "learngo"},
-}
-
 func main() {
+	db, err := db.NewDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// if err := db.Reset(); err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	if err := db.AutoMigrate(); err != nil {
+		log.Fatal(err)
+	}
+
 	r := gin.Default()
 
-	r.GET("/courses", ListCourses)
-	r.GET("/courses/:id", getCourse)
 
-	r.Run(":8080")
-}
 
-func ListCourses(c *gin.Context) {
-	c.IndentedJSON(http.StatusOK, courses)
-}
+	r.Use(cors.Default())
 
-func getCourse(c *gin.Context) {
-	id := c.Param("id")
-	for _, course := range courses {
-		if course.ID == id {
-			c.IndentedJSON(http.StatusOK, course)
-			return
-		}
-	}
-	c.IndentedJSON(http.StatusNotFound, gin.H{
-		"message": "course not found",
-})
+
+	r.GET("/courses", handler.ListCourses(db))
+	r.GET("/courses/:id", handler.GetCourse(db))
+	r.POST("/courses", handler.CreateCourse(db))
+	r.POST("/classes", handler.CreateClass(db))
+	r.POST("/enrollments", middleware.RequireUser(db), handler.EnrollClass(db))
+	r.POST("/register", handler.Register(db))
+	r.POST("/login", handler.Login(db))
+
+	r.Run(":8000")
+
 }
